@@ -38,19 +38,7 @@ public class Main {
         if (kind_of_Flush == -1) {
             return 0;
         }
-        int len_of_new = 7;
-        int i = sevenCardArray.length - 1;
-        while (sevenCardArray[i].getValue() == 14) {
-            len_of_new++;
-            i--;
-        }
-        Card[] new_array = new Card[len_of_new];
-        System.arraycopy(sevenCardArray, 0, new_array, len_of_new - sevenCardArray.length, sevenCardArray.length);
-        i = 0;
-        while (sevenCardArray[sevenCardArray.length - 1 - i].getValue() == 14) {
-            new_array[i] = new Card(1, sevenCardArray[sevenCardArray.length - 1 - i].getKind());
-            i++;
-        }
+        Card[] new_array = sevenCardArray.clone();
         sort_by_kind(new_array);
         ArrayList<Card> to_check_for_straight = new ArrayList<>(0);
         for (Card card : new_array) {
@@ -70,7 +58,7 @@ public class Main {
     }
 
 
-    public static int calc_value_of_reps(Card[] sevenCardsArray) {
+    public static int calc_value_of_reps(Card[] sevenCardsArray, Player player) {
         int[] reps = new int[3];
         int[] values = new int[3];
         int current_rep_index = 0;
@@ -90,19 +78,30 @@ public class Main {
         reps[2]++;
 //        System.out.println(reps[0] + ": " + values[0] + '\n' + reps[1] + ": " + values[1] + '\n' + reps[2] + ": " + values[2] + '\n');
         if (reps[0] == 4) {
-            return values[0] + 276; //four of a kind 0000
+            player.amount_of_kickers = 1;
+            player.forbidden_kickers.add(values[0]);
+            return values[0] + 276; //four of a kind 0000 no kicker with the value values[0] 1 kicker
         }
         if (reps[2] <= 2) {
             if (reps[1] == 1) {
                 if (reps[0] == 1)
                     return 0; //high card
-                if (reps[0] == 2)
-                    return values[0] - 2; //pair 00
-                return values[0] + 89; //three of a kind 000
+                if (reps[0] == 2) {
+                    player.amount_of_kickers = 3;
+                    player.forbidden_kickers.add(values[0]);
+                    return values[0] - 2; //pair 00 no kicker with the value values[0] 3 kickers
+                }
+                player.amount_of_kickers = 2;
+                player.forbidden_kickers.add(values[0]);
+                return values[0] + 89; //three of a kind 000 no kicker with value values[0] 2 kickers
             }
             if (reps[1] == 2) {
-                if (reps[0] == 2)
-                    return constants[values[0] - 3] + values[1]; //two pair 0011
+                if (reps[0] == 2) {
+                    player.amount_of_kickers = 1;
+                    player.forbidden_kickers.add(values[0]);
+                    player.forbidden_kickers.add(values[1]);
+                    return constants[values[0] - 3] + values[1]; //two pair 0011 no kickers with value values[0:1] 1 kicker
+                }
                 return 120 + 12 * (values[0] - 2) + values[1];//full house 00011
             }
             if (reps[1] == 3) {
@@ -110,7 +109,9 @@ public class Main {
                     return 120 + 12 * (values[1] - 2) + values[0] - 1; //full house 11100
                 return 120 + 12 * (values[0] - 2) + values[1]; //full house 00011
             }
-            return values[1] + 276; //four of a kind 1111
+            player.amount_of_kickers = 1;
+            player.forbidden_kickers.add(values[1]);
+            return values[1] + 276; //four of a kind 1111 no kicker with value values[1] 1 kicker
         }
         if (reps[0] == 3)
             return 120 + 12 * (values[0] - 2) + values[1]; //full house 00011
@@ -137,10 +138,16 @@ public class Main {
         return 0;
     }
 
-    public static double calc_value_of_high_card(Card[] sevenCardArray) {
+    public static double calc_value_of_high_card(Card[] sevenCardArray, Player player) {
         double to_return = 0;
-        for (int i = 0; i < 5; i++) {
-            to_return += (sevenCardArray[sevenCardArray.length - 1 - i].getValue() / Math.pow(10, 2 * (i + 1)));
+        int k = 0;
+        int index = 0;
+        while (k<player.amount_of_kickers){
+            if (!player.forbidden_kickers.contains(sevenCardArray[sevenCardArray.length - 1 - index].getValue())){
+                to_return += (sevenCardArray[sevenCardArray.length - 1 - index].getValue() / Math.pow(10, 2 * (k + 1)));
+                k++;
+            }
+            index++;
         }
         return to_return;
     }
@@ -148,7 +155,7 @@ public class Main {
     public static void sort_by_size(Card[] cards) {
         for (int k = 0; k < cards.length - 1; k++) {
             for (int i = 0; i < cards.length - 1; i++) {
-                if (cards[i].value > cards[i + 1].value) {
+                if (cards[i].getValue() > cards[i + 1].getValue()) {
                     Card temp = cards[i];
                     cards[i] = cards[i + 1];
                     cards[i + 1] = temp;
@@ -160,7 +167,7 @@ public class Main {
     public static void sort_by_kind(Card[] cards) {
         for (int k = 0; k < cards.length - 1; k++) {
             for (int i = 0; i < cards.length - 1; i++) {
-                if (cards[i].kind > cards[i + 1].kind) {
+                if (cards[i].getKind() > cards[i + 1].getKind()) {
                     Card temp = cards[i];
                     cards[i] = cards[i + 1];
                     cards[i + 1] = temp;
@@ -180,11 +187,11 @@ public class Main {
             System.arraycopy(table, 0, sevenCardArray, 0, table.length);
             System.arraycopy(player.cards, 0, sevenCardArray, table.length, player.cards.length);
             stable_sort(sevenCardArray);
-            player.points = Math.max(player.points, calc_value_of_reps(sevenCardArray));
+            player.points = Math.max(player.points, calc_value_of_reps(sevenCardArray, player));
             player.points = Math.max(player.points, calc_value_of_straight(sevenCardArray));
             player.points = Math.max(player.points, calc_flash(sevenCardArray));
             player.points = Math.max(player.points, calc_value_of_straight_flush(sevenCardArray));
-            player.high_card = calc_value_of_high_card(sevenCardArray);
+            player.high_card_points = calc_value_of_high_card(sevenCardArray, player);
         }
     }
 
@@ -238,12 +245,12 @@ public class Main {
     public static void declare_winner(Player[] players) {
         Player winner = players[0];
         boolean was_tie = false;
-        for (int i = 1; i < players.length ;i++) {
+        for (int i = 1; i < players.length; i++) {
             Player player = players[i];
-            if (player.points > winner.points || (player.points == winner.points && player.high_card > winner.high_card)) {
+            if (player.points > winner.points || (player.points == winner.points && player.high_card_points > winner.high_card_points)) {
                 winner = player;
                 was_tie = false;
-            } else if (player.points == winner.points && player.high_card == winner.high_card) {
+            } else if (player.points == winner.points && player.high_card_points == winner.high_card_points) {
                 was_tie = true;
             }
         }
