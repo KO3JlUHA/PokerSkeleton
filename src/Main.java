@@ -1,4 +1,3 @@
-import java.util.ArrayList;
 import java.util.*;
 
 public class Main {
@@ -6,15 +5,19 @@ public class Main {
     static int kind_of_Flush = -1;
     static Random rd = new Random();
 
+    static String last_input = "";
+    static Scanner s = new Scanner(System.in);
+
     public static void main(String[] args) {
         Player[] players = {new Player("Yanon"), new Player("Mark")};
         play_a_single_game(players);
+        System.out.println(last_input);
     }
 
-    public static int calc_value_of_straight(Card[] sevenCardArray) {
+    public static int calc_value_of_straight(Card[] sevenCardArray, Player player) {
         int len = 1;
         int max = sevenCardArray[sevenCardArray.length - 1].getValue();
-        Card[] new_array = sevenCardArray;
+        Card[] new_array = sevenCardArray.clone();
         if (max == 14) {
             new_array = new Card[sevenCardArray.length + 1];
             new_array[0] = new Card(1, sevenCardArray[sevenCardArray.length - 1].getKind());
@@ -24,6 +27,7 @@ public class Main {
             if (new_array[i].getValue() - 1 == new_array[i - 1].getValue()) {
                 len++;
                 if (len == 5) {
+                    player.amount_of_kickers = 0;
                     return 99 + max;
                 }
             } else if (new_array[i].getValue() != new_array[i - 1].getValue()) {
@@ -34,7 +38,7 @@ public class Main {
         return 0;
     }
 
-    public static int calc_value_of_straight_flush(Card[] sevenCardArray) {
+    public static int calc_value_of_straight_flush(Card[] sevenCardArray, Player player) {
         if (kind_of_Flush == -1) {
             return 0;
         }
@@ -51,12 +55,11 @@ public class Main {
             to_check_list[j] = to_check_for_straight.get(j);
         }
         kind_of_Flush = -1;
-        int val = calc_value_of_straight(to_check_list);
+        int val = calc_value_of_straight(to_check_list, player);
         if (val == 0)
             return 0;
         return val + 187;
     }
-
 
     public static int calc_value_of_reps(Card[] sevenCardsArray, Player player) {
         int[] reps = new int[3];
@@ -120,7 +123,7 @@ public class Main {
         return 120 + 12 * (values[2] - 2) + values[0] - 1; // full house 22200
     }
 
-    public static int calc_flash(Card[] sevenCardArray) {
+    public static int calc_flash(Card[] sevenCardArray, Player player) {
         int[] kind_rep_amount = new int[4];
         int[] kind_max = new int[4];
         for (int i = sevenCardArray.length - 1; i >= 0; i--) {
@@ -132,19 +135,21 @@ public class Main {
         for (int i = 0; i < kind_rep_amount.length; i++) {
             if (kind_rep_amount[i] >= 5) {
                 kind_of_Flush = i;
+                player.amount_of_kickers = 0;
                 return kind_max[i] + 107;
             }
         }
         return 0;
     }
 
-    public static double calc_value_of_high_card(Card[] sevenCardArray, Player player) {
-        double to_return = 0;
+    public static int calc_value_of_high_card(Card[] sevenCardArray, Player player) {
+        int to_return = 0;
         int k = 0;
         int index = 0;
-        while (k<player.amount_of_kickers){
-            if (!player.forbidden_kickers.contains(sevenCardArray[sevenCardArray.length - 1 - index].getValue())){
-                to_return += (sevenCardArray[sevenCardArray.length - 1 - index].getValue() / Math.pow(10, 2 * (k + 1)));
+        while (k < player.amount_of_kickers) {
+            if (!player.forbidden_kickers.contains(sevenCardArray[sevenCardArray.length - 1 - index].getValue())) {
+                to_return *= 100;
+                to_return += (sevenCardArray[sevenCardArray.length - 1 - index].getValue());
                 k++;
             }
             index++;
@@ -188,9 +193,9 @@ public class Main {
             System.arraycopy(player.cards, 0, sevenCardArray, table.length, player.cards.length);
             stable_sort(sevenCardArray);
             player.points = Math.max(player.points, calc_value_of_reps(sevenCardArray, player));
-            player.points = Math.max(player.points, calc_value_of_straight(sevenCardArray));
-            player.points = Math.max(player.points, calc_flash(sevenCardArray));
-            player.points = Math.max(player.points, calc_value_of_straight_flush(sevenCardArray));
+            player.points = Math.max(player.points, calc_value_of_straight(sevenCardArray, player));
+            player.points = Math.max(player.points, calc_flash(sevenCardArray, player));
+            player.points = Math.max(player.points, calc_value_of_straight_flush(sevenCardArray, player));
             player.high_card_points = calc_value_of_high_card(sevenCardArray, player);
         }
     }
@@ -258,7 +263,28 @@ public class Main {
             System.out.println("the winner is: " + winner);
             return;
         }
+        for (Player player : players){
+            System.out.println(player);
+        }
         System.out.println("TIE");
+    }
+
+    public static void print_time_left(int initial_time) {
+        try {
+            time_left(initial_time);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void time_left(int initial_time) throws InterruptedException {
+        for (int i = initial_time; i > 0; i--) {
+            System.out.print(i + "\r");
+            if (!last_input.equals("")) {
+                return;
+            }
+            Thread.sleep(1000);
+        }
     }
 
     public static void play_a_single_game(Player[] players) {
@@ -268,7 +294,9 @@ public class Main {
         Card[] table = generate_table(deck);
         System.out.println("table is:\n--------------------");
         show_cards(table, 0, 3);
+        print_time_left(3);
         show_cards(table, 3, 4);
+        print_time_left(3);
         show_cards(table, 4, 5);
         System.out.println("--------------------");
         show_your_hand(players[1]);
